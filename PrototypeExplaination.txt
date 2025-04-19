@@ -1,0 +1,115 @@
+Okay, let's break down this Python code. This code uses the streamlit library to create an interactive dashboard for Predictive Maintenance (PdM) of industrial compressors.
+
+Importing Libraries
+import streamlit as st
+import pandas as pd
+import numpy as np # Required for placeholder data generation
+from datetime import datetime, timedelta # Required for date calculations
+Use code with caution
+import streamlit as st: This line imports the streamlit library, which is used to build the web application and dashboard. We use st as an alias for streamlit for easier use throughout the code.
+import pandas as pd: This imports the pandas library, used for data manipulation and analysis. pandas provides the DataFrame structure for working with tabular data.
+import numpy as np: This imports the numpy library, which provides support for numerical operations and array handling. In this code, numpy is mainly used for generating placeholder data.
+from datetime import datetime, timedelta: This line imports the datetime and timedelta objects from the datetime module, used for working with dates and times, particularly in calculating the Predicted Maintenance Date.
+Configuration
+# --- Configuration ---
+st.set_page_config(page_title="Compressor PdM Dashboard", layout="wide")
+Use code with caution
+This section sets the configuration of the Streamlit app. st.set_page_config() is used to set the page title to "Compressor PdM Dashboard" and the layout to "wide" for a wider display.
+Helper Function: get_status_color
+# --- Helper Functions (Example: Determine status color) ---
+def get_status_color(status):
+    """Returns a color based on equipment status."""
+    if status == "Critical":
+        return "red"
+    elif status == "Warning":
+        return "orange"
+    elif status == "Anomaly":
+        return "purple" # Added status for anomalies
+    else: # Normal
+        return "green"
+Use code with caution
+This section defines a helper function called get_status_color. This function takes an equipment status as input and returns a color string based on the status.
+"Critical" status returns "red".
+"Warning" returns "orange".
+"Anomaly" returns "purple".
+Any other status (like "Normal") returns "green".
+This function will be used to visually represent equipment status on the dashboard.
+Placeholder Data Generation: load_data
+# --- Placeholder Data Generation ---
+# In a real application, you would load this data from your backend/database
+# where model predictions and anomaly flags are stored.
+def load_data():
+    """Generates sample data for the dashboard, specific to compressors."""
+    num_compressors = 15
+    equipment_ids = [f'COMP-{i:03d}' for i in range(1, num_compressors + 1)]
+    statuses = np.random.choice(['Normal', 'Warning', 'Critical', 'Anomaly'], num_compressors, p=[0.6, 0.15, 0.1, 0.15])
+    ruls = np.random.randint(5, 300, num_compressors)
+    probs = np.round(np.random.uniform(1, 95, num_compressors), 1)
+    pressures = np.round(np.random.uniform(80, 150, num_compressors), 1) # Example sensor
+    temps = np.round(np.random.uniform(50, 90, num_compressors), 1)     # Example sensor
+    vibrations = np.round(np.random.uniform(0.1, 5.0, num_compressors), 2) # Example sensor
+
+    data = {
+        'Equipment ID': equipment_ids,
+        'Status': statuses,
+        'Predicted RUL (Days)': ruls,
+        'Failure Probability (%)': probs,
+        'Pressure (PSI)': pressures,
+        'Temperature (°C)': temps,
+        'Vibration (mm/s)': vibrations,
+        'Last Update': pd.to_datetime('today').strftime('%Y-%m-%d %H:%M')
+    }
+    # Ensure Critical/Anomaly status has low RUL and high probability for realism
+    df = pd.DataFrame(data)
+    critical_anomaly_mask = (df['Status'] == 'Critical') | (df['Status'] == 'Anomaly')
+    warning_mask = df['Status'] == 'Warning'
+
+    df.loc[critical_anomaly_mask, 'Predicted RUL (Days)'] = np.random.randint(1, 15, critical_anomaly_mask.sum())
+    df.loc[critical_anomaly_mask, 'Failure Probability (%)'] = np.round(np.random.uniform(80, 99, critical_anomaly_mask.sum()), 1)
+    df.loc[warning_mask, 'Predicted RUL (Days)'] = np.random.randint(15, 60, warning_mask.sum())
+    df.loc[warning_mask, 'Failure Probability (%)'] = np.round(np.random.uniform(50, 80, warning_mask.sum()), 1)
+
+    # Calculate Predicted Maintenance Date
+    today_date = datetime.now().date()
+    df['Predicted Maintenance Date'] = df['Predicted RUL (Days)'].apply(lambda x: today_date + timedelta(days=int(x)))
+    # Format date for display
+    df['Predicted Maintenance Date'] = pd.to_datetime(df['Predicted Maintenance Date']).dt.strftime('%Y-%m-%d')
+
+
+    return df
+Use code with caution
+This section defines a function load_data to generate sample data for the dashboard.
+It creates a pandas DataFrame with columns like 'Equipment ID', 'Status', 'Predicted RUL (Days)', 'Failure Probability (%)', sensor readings ('Pressure', 'Temperature', 'Vibration'), and 'Last Update'.
+It uses numpy to generate random data for these columns.
+It adjusts the data for 'Critical' and 'Anomaly' statuses to have lower RUL (Remaining Useful Life) and higher failure probabilities, making the data more realistic.
+It calculates the 'Predicted Maintenance Date' based on the 'Predicted RUL (Days)' and formats it for display.
+In a real-world application, you would replace this with code to load data from your database or data source.
+Load Data and Sidebar Configuration
+# --- Load Data ---
+df_equipment = load_data()
+
+# --- Sidebar for Configuration Inputs ---
+st.sidebar.header("⚙️ Configuration")
+st.sidebar.markdown("Set thresholds and parameters for the dashboard.")
+
+# Example Configuration Inputs
+prob_threshold = st.sidebar.slider("Failure Probability Alert Threshold (%)", 0, 100, 80)
+rul_threshold = st.sidebar.number_input("RUL Alert Threshold (Days)", min_value=1, max_value=365, value=14)
+selected_model = st.sidebar.selectbox("Select Predictive Model", ["Model A (Default)", "Model B (Experimental)"])
+refresh_interval = st.sidebar.select_slider("Data Refresh Interval (minutes)", options=[5, 15, 30, 60], value=15)
+
+st.sidebar.info(f"""
+**Current Settings:**
+- Probability Threshold: {prob_threshold}%
+- RUL Threshold: {rul_threshold} days
+- Model: {selected_model}
+- Refresh: Every {refresh_interval} mins
+""")
+Use code with caution
+df_equipment = load_data(): This line calls the load_data() function and stores the generated data in a pandas DataFrame called df_equipment. This DataFrame will be the primary data source for the dashboard.
+Sidebar: This part creates a sidebar in the Streamlit app to allow users to configure the dashboard.
+st.sidebar.header() and st.sidebar.markdown() are used to add a header and descriptive text.
+st.sidebar.slider(), st.sidebar.number_input(), st.sidebar.selectbox(), and st.sidebar.select_slider() create interactive widgets for setting thresholds and parameters, such as the failure probability alert threshold, RUL alert threshold, model selection, and data refresh interval.
+st.sidebar.info() displays the current settings of the dashboard based on the user's input.
+Dashboard UI
+This code proceeds to build the main user interface of the dashboard using various streamlit elements like st.title(), st.subheader(), st.markdown(), st.warning(), st.success(), st.info(), st.dataframe(), st.columns(), st.metric(), st.selectbox(), st.write(), and st.line_chart(). It presents sections for priority alerts, detected anomalies, an overview of the compressor fleet, compressor status details, and a detailed view of a selected compressor with placeholder charts and information. The dashboard aims to provide a comprehensive view of the health and predicted maintenance needs of the industrial compressors.
